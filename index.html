@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Launcher Remote</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      color: #111;
+      background: #f4f4f4;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .shell {
+      max-width: 720px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    header {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 12px;
+    }
+
+    .title { font-size: 20px; font-weight: 700; }
+
+    .status { font-size: 14px; color: #444; }
+    .status span { font-weight: 700; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .controls button, .game-list button {
+      border: 1px solid #bbb;
+      background: #fff;
+      color: #111;
+      padding: 12px;
+      font-size: 16px;
+      touch-action: manipulation;
+    }
+
+    .controls button:active, .game-list button:active { background: #eaeaea; }
+    .controls button.primary { background: #d9f2d9; border-color: #9fd59f; }
+    .controls button.danger  { background: #f6d6d6; border-color: #e0a5a5; }
+
+    .panel {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .panel h2 { margin: 0; font-size: 14px; color: #444; }
+
+    .game-list {
+      display: grid;
+      gap: 8px;
+      max-height: 45vh;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .game-list button {
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .game-list button.active { border-color: #88a6d6; background: #e7f0ff; }
+    .badge { font-size: 12px; color: #666; }
+
+    @media (max-width: 520px) {
+      .controls { grid-template-columns: 1fr; }
+      header { display: grid; gap: 6px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <div class="title">Launcher Remote</div>
+        <div class="status" id="connectionStatus">Connecting...</div>
+      </div>
+      <div class="status" id="selectedStatus">Selected: <span>None</span></div>
+    </header>
+
+    <section class="controls">
+      <button id="prevBtn">Prev</button>
+      <button id="nextBtn">Next</button>
+      <button class="primary" id="launchBtn">Launch Selected</button>
+      <button class="danger"  id="backBtn">Back to Launcher</button>
+    </section>
+
+    <section class="panel">
+      <h2>Pick a Game</h2>
+      <div class="game-list" id="gameList"></div>
+    </section>
+  </div>
+
+  <script defer>
+    window.addEventListener("DOMContentLoaded", () => {
+      const params   = new URLSearchParams(window.location.search);
+      const host     = params.get("host")    || window.location.hostname;
+      const port     = params.get("port")    || "8085";
+      const protocol = params.get("protocol") || "http";
+      const rawApiBase = params.get("apiBase") || `${protocol}://${host}:${port}`;
+      const apiBase = rawApiBase.replace(/\/+$/, "");
+
+      const gameList        = document.getElementById("gameList");
+      const selectedStatus  = document.getElementById("selectedStatus");
+      const connectionStatus = document.getElementById("connectionStatus");
+      const launcherShell   = document.querySelector(".shell");
+      const gameController  = document.getElementById("gameController");
+
+      const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
+
+      function setStatus(text) {
+        connectionStatus.textContent = text;
+      }
+
+      if (window.location.protocol === "https:" && apiBase.startsWith("http://")) {
+        setStatus("Blocked: https page cannot call http API. Use ?apiBase=https://<tunnel-url>");
+        return;
+      }
+
+      function buildApiUrl(path) {
+        const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+        return `${apiBase}${normalizedPath}`;
+      }
+
+      async function apiGet(path) {
+        const response = await fetch(buildApiUrl(path), {
+          headers: NGROK_HEADERS
+        });
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+        return response.json();
+      }
+
+      async function apiPost(path, body) {
+        const response = await fetch(buildApiUrl(path), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...NGROK_HEADERS },
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+        return response.json();
+      }
+
+      async function sendCommand(action, index) {
+        try {
+          const body = { action };
+          if (typeof index === "number") body.index = index;
+          const result = await apiPost("/api/command", body);
+          if (!result.ok) {
+            setStatus(`Command rejected: ${result.message || action}`);
+            return false;
+          }
+          await refreshStatus();
+          return true;
+        } catch {
+          setStatus(`Command failed (${action}) via ${apiBase}`);
+          return false;
+        }
+      }
+
+      function bindPress(element, handler) {
+        if (!element) return;
+        let suppressClick = false;
+        element.addEventListener("pointerdown", async event => {
+          suppressClick = true;
+          event.preventDefault();
+          await handler();
+        });
+        element.addEventListener("click", async event => {
+          event.preventDefault();
+          if (suppressClick) { suppressClick = false; return; }
+          await handler();
+        });
+      }
+
+      async function loadGames() {
+        try {
+          const data = await apiGet("/api/games");
+          gameList.innerHTML = "";
+          if (!data.ok) { setStatus(data.message || "Games unavailable"); return; }
+          data.games.forEach(game => {
+            const btn = document.createElement("button");
+            btn.dataset.index = game.index;
+            btn.innerHTML = `<span>${game.name}</span><span class="badge">${game.id}</span>`;
+            bindPress(btn, async () => { await sendCommand("select", game.index); });
+            gameList.appendChild(btn);
+          });
+        } catch {
+          setStatus(`Connection failed (${apiBase})`);
+        }
+      }
+
+      async function refreshStatus() {
+        try {
+          const status = await apiGet("/api/status");
+          if (!status.ok) { setStatus("Waiting for launcher..."); return; }
+          setStatus(`Connected to ${apiBase}`);
+          selectedStatus.innerHTML = `Selected: <span>${status.selectedName || "None"}</span>`;
+          Array.from(gameList.children).forEach(child => {
+            child.classList.toggle("active", Number(child.dataset.index) === status.selectedIndex);
+          });
+        } catch {
+          setStatus(`Connection failed (${apiBase})`);
+        }
+      }
+
+      bindPress(document.getElementById("prevBtn"),   async () => { await sendCommand("prev"); });
+      bindPress(document.getElementById("nextBtn"),   async () => { await sendCommand("next"); });
+      bindPress(document.getElementById("launchBtn"), async () => {
+        const ok = await sendCommand("launch");
+        if (ok) { gameController.style.display = "block"; launcherShell.style.display = "none"; }
+      });
+      bindPress(document.getElementById("backBtn"),   async () => { await sendCommand("back"); });
+
+      loadGames().then(refreshStatus);
+      setInterval(refreshStatus, 2000);
+
+      async function sendInput(action) {
+        try {
+          await apiPost("/api/input", { action });
+        } catch {
+          setStatus(`Input send failed (${apiBase})`);
+        }
+      }
+
+      document.querySelectorAll(".dir").forEach(btn => {
+        bindPress(btn, async () => { await sendInput(btn.dataset.dir); });
+      });
+
+      bindPress(document.getElementById("jumpBtn"),  async () => { await sendInput("jump"); });
+      bindPress(document.getElementById("exitGame"), async () => {
+        const ok = await sendCommand("back");
+        if (ok) { gameController.style.display = "none"; launcherShell.style.display = "flex"; }
+      });
+    });
+  </script>
+
+  <!-- GAME CONTROLLER -->
+  <div id="gameController" style="display:none; position:fixed; inset:0; background:#111; color:white;">
+    <div style="position:absolute; left:20px; bottom:20px; width:200px; height:200px;">
+      <button class="dir" data-dir="up"    style="position:absolute; left:70px;  top:0;    width:60px; height:60px;">W</button>
+      <button class="dir" data-dir="left"  style="position:absolute; left:0;     top:70px; width:60px; height:60px;">A</button>
+      <button class="dir" data-dir="down"  style="position:absolute; left:70px;  top:140px;width:60px; height:60px;">S</button>
+      <button class="dir" data-dir="right" style="position:absolute; left:140px; top:70px; width:60px; height:60px;">D</button>
+    </div>
+    <div style="position:absolute; right:30px; bottom:60px;">
+      <button id="jumpBtn" style="width:100px;height:100px;border-radius:50%;font-size:22px;">JUMP</button>
+    </div>
+    <div style="position:absolute; top:20px; left:20px;">
+      <button id="exitGame">Exit Game</button>
+    </div>
+  </div>
+</body>
+</html>
