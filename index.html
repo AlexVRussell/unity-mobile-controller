@@ -88,6 +88,25 @@
       .controls { grid-template-columns: 1fr; }
       header { display: grid; gap: 6px; }
     }
+
+    button.game-btn {
+      background-color: #2C3E8C !important;
+      color: white !important;
+      border: 2px solid #5c59598a !important;
+    }
+    button.game-btn:active {
+      transform: scale(0.92);
+      box-shadow:
+        0 0 20px #00ffff,
+        inset 0 0 25px #00ffff88;
+    }
+    #touchpad {
+      background-color: rgba(110, 69, 226, 0.2) !important;
+      border: 2px solid #79757531 !important;
+    }
+    #exitGame, #exitGameMouse {
+      border-radius: 10px !important;
+    }
   </style>
 </head>
 <body>
@@ -126,7 +145,11 @@
       const selectedStatus  = document.getElementById("selectedStatus");
       const connectionStatus = document.getElementById("connectionStatus");
       const launcherShell   = document.querySelector(".shell");
+      const controllerWrapper = document.getElementById("controllerWrapper");
       const gameController  = document.getElementById("gameController");
+      const mouseController = document.getElementById("mouseController");
+      const toggleBtn = document.getElementById('toggleController');
+      const touchpad = document.getElementById('touchpad');
 
       const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
 
@@ -229,7 +252,7 @@
       bindPress(document.getElementById("nextBtn"),   async () => { await sendCommand("next"); });
       bindPress(document.getElementById("launchBtn"), async () => {
         const ok = await sendCommand("launch");
-        if (ok) { gameController.style.display = "block"; launcherShell.style.display = "none"; }
+        if (ok) { controllerWrapper.style.display = "block"; launcherShell.style.display = "none"; }
       });
       bindPress(document.getElementById("backBtn"),   async () => { await sendCommand("back"); });
 
@@ -249,26 +272,104 @@
       });
 
       bindPress(document.getElementById("jumpBtn"),  async () => { await sendInput("jump"); });
-      bindPress(document.getElementById("exitGame"), async () => {
+      bindPress(document.getElementById("leftClick"),  async () => { await sendInput("leftclick"); });
+      bindPress(document.getElementById("rightClick"), async () => { await sendInput("rightclick"); });
+      
+      const exitGameHandler = async () => {
         const ok = await sendCommand("back");
-        if (ok) { gameController.style.display = "none"; launcherShell.style.display = "flex"; }
+        if (ok) { controllerWrapper.style.display = "none"; launcherShell.style.display = "flex"; }
+      };
+      
+      bindPress(document.getElementById("exitGame"), exitGameHandler);
+      bindPress(document.getElementById("exitGameMouse"), exitGameHandler);
+
+      toggleBtn.addEventListener('click', () => {
+        if (gameController.style.display !== 'none') {
+          gameController.style.display = 'none';
+          mouseController.style.display = 'block';
+          toggleBtn.textContent = 'Switch to Gamepad';
+        } else {
+          gameController.style.display = 'block';
+          mouseController.style.display = 'none';
+          toggleBtn.textContent = 'Switch to Mouse';
+        }
       });
+
+      let isTouchpadDown = false;
+      touchpad.addEventListener('pointerdown', async (event) => {
+        isTouchpadDown = true;
+        // simulate left click down event if needed, or send specific touchpad start
+        // For simplicity, we trigger the leftClick logic:
+        await sendInput("leftclick_down");
+      });
+
+      touchpad.addEventListener('pointermove', async (event) => {
+        if (!isTouchpadDown) return;
+        // place for backend drag handling
+        // await sendInput("mousemove");
+      });
+
+      const handlePointerUp = async (event) => {
+        if (!isTouchpadDown) return;
+        isTouchpadDown = false;
+        await sendInput("leftclick_up");
+      };
+
+      touchpad.addEventListener('pointerup', handlePointerUp);
+      touchpad.addEventListener('pointercancel', handlePointerUp);
+
+      touchpad.addEventListener('click', async (event) => {
+        await sendInput("leftclick");
+      });
+      touchpad.addEventListener('dblclick', async (event) => {
+        await sendInput("rightclick");
+      });
+
     });
   </script>
 
-  <!-- GAME CONTROLLER -->
-  <div id="gameController" style="display:none; position:fixed; inset:0; background:#111; color:white;">
-    <div style="position:absolute; left:20px; bottom:20px; width:200px; height:200px;">
-      <button class="dir" data-dir="up"    style="position:absolute; left:70px;  top:0;    width:60px; height:60px;">W</button>
-      <button class="dir" data-dir="left"  style="position:absolute; left:0;     top:70px; width:60px; height:60px;">A</button>
-      <button class="dir" data-dir="down"  style="position:absolute; left:70px;  top:140px;width:60px; height:60px;">S</button>
-      <button class="dir" data-dir="right" style="position:absolute; left:140px; top:70px; width:60px; height:60px;">D</button>
+  <!-- GAME CONTROLLERS -->
+  <div id="controllerWrapper" style="display:none; position:fixed; inset:0; background:#111; color:white; z-index:900;">
+    
+    <!-- Toggle Button -->
+    <div style="position:fixed; top:10px; right:10px; z-index:1000;">
+      <button id="toggleController" style="padding:10px; background:#333; color:white; border:none; border-radius:5px;">Switch to Mouse</button>
     </div>
-    <div style="position:absolute; right:30px; bottom:60px;">
-      <button id="jumpBtn" style="width:100px;height:100px;border-radius:50%;font-size:22px;">JUMP</button>
+
+    <!-- Gamepad Controller -->
+    <div id="gameController" style="position:absolute; inset:0;">
+      <!-- Movement Pad -->
+      <div style="position:absolute; left:20px; bottom:20px; width:200px; height:130px; background-color: rgba(110, 69, 226, 0.1); border: 2px solid #79757531; border-radius: 10px;">
+        <button class="dir game-btn" data-dir="up" style="position:absolute; left:70px; top:0; width:60px; height:60px;">W</button>
+        <button class="dir game-btn" data-dir="left" style="position:absolute; left:0; top:70px; width:60px; height:60px;">A</button>
+        <button class="dir game-btn" data-dir="down" style="position:absolute; left:70px; top:70px; width:60px; height:60px;">S</button>
+        <button class="dir game-btn" data-dir="right" style="position:absolute; left:140px; top:70px; width:60px; height:60px;">D</button>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="position:absolute; right:30px; bottom:60px;">
+        <button id="jumpBtn" class="game-btn" style="width:100px;height:100px;border-radius:50%;font-size:22px;">JUMP</button>
+      </div>
+
+      <div style="position:absolute; top:20px; left:20px;">
+        <button id="exitGame" class="game-btn">Exit Game</button>
+      </div>
     </div>
-    <div style="position:absolute; top:20px; left:20px;">
-      <button id="exitGame">Exit Game</button>
+
+    <!-- Mouse-Style Controller -->
+    <div id="mouseController" style="display:none; position:absolute; inset:0; background:#222;">
+      <!-- Touchpad Area for Cursor Movement -->
+      <div id="touchpad" style="position:absolute; inset:0; border-radius:10px;"></div>
+
+      <!-- Click Buttons -->
+      <div style="position:absolute; right:30px; bottom:60px; z-index:10;">
+        <button id="leftClick" class="game-btn" style="width:100px; height:100px; border-radius:50%; font-size:18px; margin-bottom:20px;">Left Click</button><br>
+        <button id="rightClick" class="game-btn" style="width:100px; height:100px; border-radius:50%; font-size:18px;">Right Click</button>
+      </div>
+
+      <div style="position:absolute; top:20px; left:20px; z-index:10;">
+        <button id="exitGameMouse" class="game-btn">Exit Game</button>
+      </div>
     </div>
   </div>
 </body>
