@@ -1,11 +1,14 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Launcher Remote</title>
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
@@ -30,10 +33,19 @@
       padding: 12px;
     }
 
-    .title { font-size: 20px; font-weight: 700; }
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+    }
 
-    .status { font-size: 14px; color: #444; }
-    .status span { font-weight: 700; }
+    .status {
+      font-size: 14px;
+      color: #444;
+    }
+
+    .status span {
+      font-weight: 700;
+    }
 
     .controls {
       display: grid;
@@ -41,7 +53,8 @@
       gap: 10px;
     }
 
-    .controls button, .game-list button {
+    .controls button,
+    .game-list button {
       border: 1px solid #bbb;
       background: #fff;
       color: #111;
@@ -50,9 +63,20 @@
       touch-action: manipulation;
     }
 
-    .controls button:active, .game-list button:active { background: #eaeaea; }
-    .controls button.primary { background: #d9f2d9; border-color: #9fd59f; }
-    .controls button.danger  { background: #f6d6d6; border-color: #e0a5a5; }
+    .controls button:active,
+    .game-list button:active {
+      background: #eaeaea;
+    }
+
+    .controls button.primary {
+      background: #d9f2d9;
+      border-color: #9fd59f;
+    }
+
+    .controls button.danger {
+      background: #f6d6d6;
+      border-color: #e0a5a5;
+    }
 
     .panel {
       background: #fff;
@@ -63,7 +87,11 @@
       gap: 8px;
     }
 
-    .panel h2 { margin: 0; font-size: 14px; color: #444; }
+    .panel h2 {
+      margin: 0;
+      font-size: 14px;
+      color: #444;
+    }
 
     .game-list {
       display: grid;
@@ -81,12 +109,25 @@
       gap: 12px;
     }
 
-    .game-list button.active { border-color: #88a6d6; background: #e7f0ff; }
-    .badge { font-size: 12px; color: #666; }
+    .game-list button.active {
+      border-color: #88a6d6;
+      background: #e7f0ff;
+    }
+
+    .badge {
+      font-size: 12px;
+      color: #666;
+    }
 
     @media (max-width: 520px) {
-      .controls { grid-template-columns: 1fr; }
-      header { display: grid; gap: 6px; }
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        display: grid;
+        gap: 6px;
+      }
     }
 
     button.game-btn {
@@ -94,21 +135,26 @@
       color: white !important;
       border: 2px solid #5c59598a !important;
     }
+
     button.game-btn:active {
       transform: scale(0.92);
       box-shadow:
         0 0 20px #00ffff,
         inset 0 0 25px #00ffff88;
     }
+
     #touchpad {
       background-color: rgba(110, 69, 226, 0.2) !important;
       border: 2px solid #79757531 !important;
     }
-    #exitGame, #exitGameMouse {
+
+    #exitGame,
+    #exitGameMouse {
       border-radius: 10px !important;
     }
   </style>
 </head>
+
 <body>
   <div class="shell">
     <header>
@@ -123,7 +169,7 @@
       <button id="prevBtn">Prev</button>
       <button id="nextBtn">Next</button>
       <button class="primary" id="launchBtn">Launch Selected</button>
-      <button class="danger"  id="backBtn">Back to Launcher</button>
+      <button class="danger" id="backBtn">Back to Launcher</button>
     </section>
 
     <section class="panel">
@@ -134,19 +180,20 @@
 
   <script defer>
     window.addEventListener("DOMContentLoaded", () => {
-      const params   = new URLSearchParams(window.location.search);
-      const host     = params.get("host")    || window.location.hostname;
-      const port     = params.get("port")    || "8085";
+      const params = new URLSearchParams(window.location.search);
+      const host = params.get("host") || window.location.hostname;
+      const port = params.get("port") || "8085";
       const protocol = params.get("protocol") || "http";
       const rawApiBase = params.get("apiBase") || `${protocol}://${host}:${port}`;
       const apiBase = rawApiBase.replace(/\/+$/, "");
 
-      const gameList        = document.getElementById("gameList");
-      const selectedStatus  = document.getElementById("selectedStatus");
+      const gameList = document.getElementById("gameList");
+      const selectedStatus = document.getElementById("selectedStatus");
       const connectionStatus = document.getElementById("connectionStatus");
-      const launcherShell   = document.querySelector(".shell");
+      const launcherShell = document.querySelector(".shell");
       const controllerWrapper = document.getElementById("controllerWrapper");
-      const gameController  = document.getElementById("gameController");
+      const gameController = document.getElementById("gameController");
+      const socAnxController = document.getElementById("socAnxController");
       const mouseController = document.getElementById("mouseController");
       const toggleBtn = document.getElementById('toggleController');
       const touchpad = document.getElementById('touchpad');
@@ -248,13 +295,13 @@
         }
       }
 
-      bindPress(document.getElementById("prevBtn"),   async () => { await sendCommand("prev"); });
-      bindPress(document.getElementById("nextBtn"),   async () => { await sendCommand("next"); });
+      bindPress(document.getElementById("prevBtn"), async () => { await sendCommand("prev"); });
+      bindPress(document.getElementById("nextBtn"), async () => { await sendCommand("next"); });
       bindPress(document.getElementById("launchBtn"), async () => {
         const ok = await sendCommand("launch");
         if (ok) { controllerWrapper.style.display = "block"; launcherShell.style.display = "none"; }
       });
-      bindPress(document.getElementById("backBtn"),   async () => { await sendCommand("back"); });
+      bindPress(document.getElementById("backBtn"), async () => { await sendCommand("back"); });
 
       loadGames().then(refreshStatus);
       setInterval(refreshStatus, 2000);
@@ -271,27 +318,44 @@
         bindPress(btn, async () => { await sendInput(btn.dataset.dir); });
       });
 
-      bindPress(document.getElementById("jumpBtn"),  async () => { await sendInput("jump"); });
-      bindPress(document.getElementById("leftClick"),  async () => { await sendInput("leftclick"); });
+      bindPress(document.getElementById("jumpBtn"), async () => { await sendInput("jump"); });
+      bindPress(document.getElementById("leftClick"), async () => { await sendInput("leftclick"); });
       bindPress(document.getElementById("rightClick"), async () => { await sendInput("rightclick"); });
-      
+
       const exitGameHandler = async () => {
         const ok = await sendCommand("back");
         if (ok) { controllerWrapper.style.display = "none"; launcherShell.style.display = "flex"; }
       };
-      
+
       bindPress(document.getElementById("exitGame"), exitGameHandler);
       bindPress(document.getElementById("exitGameMouse"), exitGameHandler);
 
+      bindPress(document.getElementById("spaceBtn"), async () => {await sendInput("space");});
+      bindPress(document.getElementById("vBtn"), async () => {await sendInput("v");});
+      bindPress(document.getElementById("exitGameSoc"), exitGameHandler);
+
+      let mode = 0;
+
       toggleBtn.addEventListener('click', () => {
-        if (gameController.style.display !== 'none') {
-          gameController.style.display = 'none';
-          mouseController.style.display = 'block';
-          toggleBtn.textContent = 'Switch to Gamepad';
-        } else {
+        mode = (mode + 1) % 3;
+
+        if (mode === 0) {
           gameController.style.display = 'block';
           mouseController.style.display = 'none';
+          socAnxController.style.display = 'none';
           toggleBtn.textContent = 'Switch to Mouse';
+        }
+        else if (mode === 1) {
+          gameController.style.display = 'none';
+          mouseController.style.display = 'block';
+          socAnxController.style.display = 'none';
+          toggleBtn.textContent = 'Switch to Social Anxiety Mode';
+        }
+        else if (mode === 2) {
+          gameController.style.display = 'none';
+          mouseController.style.display = 'none';
+          socAnxController.style.display = 'block';
+          toggleBtn.textContent = 'Switch to Gamepad';
         }
       });
 
@@ -326,29 +390,53 @@
       });
 
     });
+
+    function trackHold(button, name) {
+      if (!button) return;
+      let startTime;
+
+      button.addEventListener("pointerdown", () => {
+        startTime = Date.now();
+        console.log(name + " pressed");
+      });
+
+      document.addEventListener("pointerup", () => {
+        if (!startTime) return;
+        const duration = Date.now() - startTime;
+        console.log(name + " held for " + duration + " ms");
+        startTime = null;
+      });
+    }
   </script>
 
   <!-- GAME CONTROLLERS -->
   <div id="controllerWrapper" style="display:none; position:fixed; inset:0; background:#111; color:white; z-index:900;">
-    
+
     <!-- Toggle Button -->
     <div style="position:fixed; top:10px; right:10px; z-index:1000;">
-      <button id="toggleController" style="padding:10px; background:#333; color:white; border:none; border-radius:5px;">Switch to Mouse</button>
+      <button id="toggleController"
+        style="padding:10px; background:#333; color:white; border:none; border-radius:5px;">Switch to Mouse</button>
     </div>
 
     <!-- Gamepad Controller -->
     <div id="gameController" style="position:absolute; inset:0;">
       <!-- Movement Pad -->
-      <div style="position:absolute; left:20px; bottom:20px; width:200px; height:130px; background-color: rgba(110, 69, 226, 0.1); border: 2px solid #79757531; border-radius: 10px;">
-        <button class="dir game-btn" data-dir="up" style="position:absolute; left:70px; top:0; width:60px; height:60px;">W</button>
-        <button class="dir game-btn" data-dir="left" style="position:absolute; left:0; top:70px; width:60px; height:60px;">A</button>
-        <button class="dir game-btn" data-dir="down" style="position:absolute; left:70px; top:70px; width:60px; height:60px;">S</button>
-        <button class="dir game-btn" data-dir="right" style="position:absolute; left:140px; top:70px; width:60px; height:60px;">D</button>
+      <div
+        style="position:absolute; left:20px; bottom:20px; width:200px; height:130px; background-color: rgba(110, 69, 226, 0.1); border: 2px solid #79757531; border-radius: 10px;">
+        <button class="dir game-btn" data-dir="up"
+          style="position:absolute; left:70px; top:0; width:60px; height:60px;">W</button>
+        <button class="dir game-btn" data-dir="left"
+          style="position:absolute; left:0; top:70px; width:60px; height:60px;">A</button>
+        <button class="dir game-btn" data-dir="down"
+          style="position:absolute; left:70px; top:70px; width:60px; height:60px;">S</button>
+        <button class="dir game-btn" data-dir="right"
+          style="position:absolute; left:140px; top:70px; width:60px; height:60px;">D</button>
       </div>
 
       <!-- Action Buttons -->
       <div style="position:absolute; right:30px; bottom:60px;">
-        <button id="jumpBtn" class="game-btn" style="width:100px;height:100px;border-radius:50%;font-size:22px;">JUMP</button>
+        <button id="jumpBtn" class="game-btn"
+          style="width:100px;height:100px;border-radius:50%;font-size:22px;">JUMP</button>
       </div>
 
       <div style="position:absolute; top:20px; left:20px;">
@@ -363,14 +451,53 @@
 
       <!-- Click Buttons -->
       <div style="position:absolute; right:30px; bottom:60px; z-index:10;">
-        <button id="leftClick" class="game-btn" style="width:100px; height:100px; border-radius:50%; font-size:18px; margin-bottom:20px;">Left Click</button><br>
-        <button id="rightClick" class="game-btn" style="width:100px; height:100px; border-radius:50%; font-size:18px;">Right Click</button>
+        <button id="leftClick" class="game-btn"
+          style="width:100px; height:100px; border-radius:50%; font-size:18px; margin-bottom:20px;">Left
+          Click</button><br>
+        <button id="rightClick" class="game-btn"
+          style="width:100px; height:100px; border-radius:50%; font-size:18px;">Right Click</button>
       </div>
 
       <div style="position:absolute; top:20px; left:20px; z-index:10;">
         <button id="exitGameMouse" class="game-btn">Exit Game</button>
       </div>
     </div>
+
+    <!-- Social Anxiety Mode -->
+    <div id="socAnxController" style="display:none; position:absolute; inset:0;">
+
+      <!-- Center container -->
+      <div style="
+        position:absolute;
+        inset:0;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        gap:40px;">
+
+        <!-- SPACE button -->
+        <button id="spaceBtn" class="game-btn" style="
+        width:140px;
+        height:140px;
+        border-radius:50%;
+        font-size:20px;">SPACE</button>
+
+        <!-- V button -->
+        <button id="vBtn" class="game-btn" style="
+        width:140px;
+        height:140px;
+        border-radius:50%;
+        font-size:20px;">V</button>
+      </div>
+
+      <!-- Exit button -->
+      <div style="position:absolute; top:20px; left:20px;">
+        <button id="exitGameSoc" class="game-btn">Exit Game</button>
+      </div>
+
+    </div>
+
   </div>
 </body>
+
 </html>
